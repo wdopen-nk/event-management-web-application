@@ -1,49 +1,104 @@
 <?php
-require_once __DIR__ . "/header.php";
-require_once __DIR__ . "/db.php"; // assumes you have a DB connection here
+declare(strict_types=1);
 
-// fetch 3 newest events
-$sql = "
-    SELECT e.id, e.title, e.start_date, e.end_date, u.username AS organizer
-    FROM events e
-    LEFT JOIN users u ON e.created_by = u.id
-    ORDER BY e.start_date DESC
-    LIMIT 3
-";
+// ini_set('display_errors', '1');
+// ini_set('display_startup_errors', '1');
+// error_reporting(E_ALL);
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute();
-$events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+define('BASE_PATH', '/~53737289/semestral-project-test');
 
-?>
+/**
+ * Front Controller
+ * ----------------
+ * All HTTP requests enter the application through this file.
+ */
 
-<main style="padding: 24px; font-family: Arial, sans-serif;">
+// --------------------------------------------------
+// 1) Bootstrap
+// --------------------------------------------------
 
-    <h1 style="font-size: 32px; color: #1E1E2F;">Newest Events</h1>
+session_start();
 
-    <?php if (count($events) === 0): ?>
-        <p>No events yet. Be the first to create one!</p>
-    <?php else: ?>
-        <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 18px;">
-            <?php foreach ($events as $event): ?>
-                <div style="border: 1px solid #ccc; padding: 18px; border-radius: 6px;">
-                    <h2 style="margin: 0;"><?php echo htmlspecialchars($event['title']); ?></h2>
-                    <p style="margin: 6px 0;">
-                        <strong>Start:</strong> <?php echo htmlspecialchars($event['start_date']); ?><br>
-                        <strong>End:</strong> <?php echo htmlspecialchars($event['end_date']); ?><br>
-                        <strong>Organizer:</strong> <?php echo htmlspecialchars($event['organizer'] ?? "Unknown"); ?>
-                    </p>
+require_once __DIR__ . '/app/Core/Request.php';
+require_once __DIR__ . '/app/Core/Response.php';
+require_once __DIR__ . '/app/Core/Router.php';
+require_once __DIR__ . '/app/Core/View.php';
+require_once __DIR__ . '/app/Core/Auth.php';
+require_once __DIR__ . '/app/Core/Csrf.php';
+require_once __DIR__ . '/app/Core/DB.php';
+require_once __DIR__ . '/app/Core/NotFoundException.php';
 
-                    <a style="color: #00E5FF; text-decoration: none; font-weight: bold;"
-                       href="<?php echo $baseUrl . "/events/index.php/" . urlencode($event['id']); ?>">
-                        View Details →
-                    </a>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+// Presenters
+require_once __DIR__ . '/app/Presenters/Presenter.php';
+require_once __DIR__ . '/app/Presenters/EventsPresenter.php';
+require_once __DIR__ . '/app/Presenters/AuthPresenter.php';
+require_once __DIR__ . '/app/Presenters/SettingsPresenter.php';
 
-</main>
+// Models
+require_once __DIR__ . '/app/Models/EventModel.php';
+require_once __DIR__ . '/app/Models/UserModel.php';
+require_once __DIR__ . '/app/Models/RegistrationModel.php';
 
-</body>
-</html>
+// --------------------------------------------------
+// 2) Create core objects
+// --------------------------------------------------
+
+$request  = Request::fromGlobals();
+$response = new Response();
+$router   = new Router($request, $response);
+
+// --------------------------------------------------
+// 3) Define routes
+// --------------------------------------------------
+
+// Home / landing page
+$router->get('/', 'EventsPresenter@home');
+
+// Events
+$router->get('/events', 'EventsPresenter@list');
+$router->get('/events/new', 'EventsPresenter@create');
+$router->post('/events/new', 'EventsPresenter@create');
+
+$router->get('/events/mine', 'EventsPresenter@mine');
+
+$router->get('/events/{id}', 'EventsPresenter@detail');
+
+$router->get('/events/{id}/edit', 'EventsPresenter@edit');
+$router->post('/events/{id}/edit', 'EventsPresenter@edit');
+
+$router->get('/events/{id}/register', 'EventsPresenter@register');
+$router->post('/events/{id}/register', 'EventsPresenter@register');
+
+$router->post('/events/{id}/cancel', 'EventsPresenter@cancel');
+
+// Authentication
+$router->get('/login', 'AuthPresenter@login');
+$router->post('/login', 'AuthPresenter@login');
+
+$router->get('/register', 'AuthPresenter@register');
+$router->post('/register', 'AuthPresenter@register');
+
+$router->post('/logout', 'AuthPresenter@logout');
+
+// Settings
+$router->get('/settings', 'SettingsPresenter@index');
+$router->post('/settings', 'SettingsPresenter@index');
+
+// --------------------------------------------------
+// 4) Dispatch with error handling
+// --------------------------------------------------
+
+try {
+    $router->dispatch();
+} 
+
+catch (NotFoundException $e) {
+    http_response_code(404);
+    View::render('errors/404');
+
+} 
+
+catch (Throwable $e) {
+    http_response_code(500);
+    View::render('errors/500');
+}
