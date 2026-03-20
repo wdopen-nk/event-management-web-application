@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /~53737289/semestral-project-test/
+RewriteBase /~my_user/semestral-project-test/
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
