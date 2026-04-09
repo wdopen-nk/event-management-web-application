@@ -75,4 +75,4 @@ The application follows a Front Controller + MVP (Model-View-Presenter) architec
 
 ## 📁 Structure
 
-app/, assets/, data/, index.php
+app/, assets/, database/, index.php
